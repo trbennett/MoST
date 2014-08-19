@@ -1,0 +1,18 @@
+import java.awt.Insets;
+
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JPanel;
+
+public class Main extends JPanel
+{
+
+	public static void main(String[] args) {
+		// TODO Auto-generated method stub
+		JTextArea log = new JTextArea(20,35);
+		log.setMargin(new Insets(5, 5, 5, 5));
+		log.setEditable(false);
+		JScrollPane logScrollPane = new JScrollPane(log);
+	}
+
+}

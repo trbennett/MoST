@@ -1,0 +1,1078 @@
+package visual;
+
+import java.awt.*;
+import java.awt.event.*;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.StringTokenizer;
+import java.util.Vector;
+
+import javax.swing.*;
+import javax.swing.event.*;
+
+/*************************************************************************************
+ * Description: This class creates a frame that contains an open field.
+ * #The user has the following options in this frame:
+ * -Load from file: loads movement data from a file named 'generated_graph.txt'
+ * -Compose Sequence: starts the diary generation part of code. See DiaryGenerationMenu.java
+ * #Right click opens up a pop-up menu with the following options
+ * -New: Creates a new node in the graph. Prompts user for details on node creation.
+ * -Show/Hide Postures: Shows start and end postures of each movement node below the nodes
+ * -Delete: Deletes the selected node and its related edges
+ * -Textualize Rules: Creates a new generated_graph marked with a timestamp using the current nodes and information
+ * -Clear: Clears all nodes from the graph
+ * 
+ * @author John B. Matthews; distribution per GPL.
+ * @author Claudio Savaglio; customization of the code and inserting new
+ *         functionalities
+ * @author Hunter Massey; bug fixes and feature addition - latest to touch code
+ **************************************************************************************
+ *
+ * Class GraphPanel
+ * Description:
+ * Constructors:
+ * GraphPanel()
+ * Functions:
+ * getPreferredSize() - returns Dimension, set by WIDE and HIGH
+ * paintComponent(Graphics g) - used to draw individual components by calling other functions
+ * ***********************************************
+ */
+@SuppressWarnings("serial")
+public class GraphPanel extends JComponent
+{
+	private static final int WIDE = 840;
+	private static final int HIGH = 580;
+	private static final int RADIUS = 15;
+	private ControlPanel control = new ControlPanel();
+	private int radius = RADIUS;
+	Vector<String> postures = new Vector<String>();
+	/**
+	 * it contains the list of the current nodes
+	 */
+	private List<Node> nodes = new ArrayList<Node>();
+	/**
+	 * it contains the list of the current selected nodes
+	 */
+	//private List<Node> selected = new ArrayList<Node>();
+	/**
+	 * it contains the list of the current edges
+	 */
+	private List<Edge> edges = new ArrayList<Edge>();
+	//I have no idea what these do - Hunter
+	private Point mousePt = new Point(WIDE / 2, HIGH / 2);
+	private Rectangle mouseRect = new Rectangle();
+	private boolean selecting = false;
+	private static boolean posturesVisible = false;
+	/**
+	 * use for creating directional edges (first selected node is the source of
+	 * the edge,second selected node is the end of the edge)
+	 */
+	public static HashMap<String, Integer> hm = new HashMap<String, Integer>();
+	public static int cont = 1;
+
+	public static void main(String[] args) throws Exception {
+		
+		EventQueue.invokeLater(new Runnable()
+		{
+			/**
+			 * Set the graphical environment
+			 */
+			public void run() {
+				JFrame f = new JFrame("GraphPanel");
+				f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+				GraphPanel gp = new GraphPanel();
+				//f.add(gp.control, BorderLayout.CENTER);
+				f.add(gp.control, BorderLayout.NORTH);
+				f.add(new JScrollPane(gp), BorderLayout.CENTER);
+				//  f.add(new JScrollPane(gp), BorderLayout.SOUTH);
+				// f.getRootPane().setDefaultButton(gp.control.defaultButton);
+				f.pack();
+				f.setLocationByPlatform(true);
+				//  f.setExtendedState(JFrame.MAXIMIZED_BOTH);
+				f.setVisible(true);
+			}
+		});
+	}
+
+	
+	/**
+	 * Obtain an arrow connecting 2 points
+	 * 
+	 * @param g
+	 *            Graphics element
+	 * @param x0
+	 *            start point x
+	 * @param y0
+	 *            start point y
+	 * @param x1
+	 *            end point x
+	 * @param y1
+	 *            end point y
+	 */
+	static public void drawArrow(Graphics g, int x0, int y0, int x1, int y1, int headLength, int headAngle) {
+		double offs = headAngle * Math.PI / 180.0;
+		double angle = Math.atan2(y0 - y1, x0 - x1);
+		int[] xs = { x1 + (int) (headLength * Math.cos(angle + offs)), x1, x1 + (int) (headLength * Math.cos(angle - offs)) };
+		int[] ys = { y1 + (int) (headLength * Math.sin(angle + offs)), y1, y1 + (int) (headLength * Math.sin(angle - offs)) };
+		g.drawLine(x0, y0, x1, y1);
+		g.drawPolyline(xs, ys, 3);
+	}
+
+	//More setting up of the environment, the constructor for this class
+	public GraphPanel()
+	{
+		this.setOpaque(true);
+		this.addMouseListener(new MouseHandler());
+		this.addMouseMotionListener(new MouseMotionHandler());
+	}
+
+	//Returns the dimensions of the application on startup, set earlier as WIDE and HIGH
+	@Override
+	public Dimension getPreferredSize() {
+		return new Dimension(WIDE, HIGH);
+	}
+
+	//Used to draw the individual nodes and edges, by calling other functions
+	@Override
+	public void paintComponent(Graphics g) {
+		g.setColor(new Color(0x00f0f0f0));
+		g.fillRect(0, 0, getWidth(), getHeight());
+		for (Edge e : edges)
+		{
+			e.draw(g);
+		}
+		for (Node n : nodes)
+		{
+			n.draw(g);
+		}
+		if (selecting)
+		{
+			g.setColor(Color.darkGray);
+			g.drawRect(mouseRect.x, mouseRect.y, mouseRect.width, mouseRect.height);
+		}
+	}
+
+	//Handles... the mouse? -Hunter
+	private class MouseHandler extends MouseAdapter
+	{
+		@Override
+		public void mouseReleased(MouseEvent e) {
+			selecting = false;
+			mouseRect.setBounds(0, 0, 0, 0);
+			if (e.isPopupTrigger())
+			{
+				showPopup(e);
+			}
+			e.getComponent().repaint();
+		}
+
+		@Override
+		public void mousePressed(MouseEvent e) {
+			mousePt = e.getPoint();
+			if (e.isShiftDown())
+			{
+				Node.selectToggle(nodes, mousePt);
+			}
+			else if (e.isPopupTrigger())
+			{
+				Node.selectOne(nodes, mousePt);
+				showPopup(e);
+			}
+			else if (Node.selectOne(nodes, mousePt))
+			{
+				selecting = false;
+			}
+			else
+			{
+				Node.selectNone(nodes);
+				selecting = true;
+			}
+			e.getComponent().repaint();
+		}
+
+		private void showPopup(MouseEvent e) {
+			if(posturesVisible)
+			{
+				control.popup.getComponent(2).setVisible(false);
+				control.popup.getComponent(3).setVisible(true);
+			}
+			else
+			{
+				control.popup.getComponent(2).setVisible(true);
+				control.popup.getComponent(3).setVisible(false);
+			}
+			control.popup.show(e.getComponent(), e.getX(), e.getY());
+		}
+	}
+
+	//Handles mouse motions, say if user is currently holding down left click -Hunter
+	private class MouseMotionHandler extends MouseMotionAdapter
+	{
+		Point delta = new Point();
+
+		@Override
+		public void mouseDragged(MouseEvent e) {
+			if (selecting)
+			{
+				mouseRect.setBounds(Math.min(mousePt.x, e.getX()), Math.min(mousePt.y, e.getY()), Math.abs(mousePt.x - e.getX()), Math.abs(mousePt.y - e.getY()));
+				Node.selectRect(nodes, mouseRect);
+			}
+			else
+			{
+				delta.setLocation(e.getX() - mousePt.x, e.getY() - mousePt.y);
+				Node.updatePosition(nodes, delta);
+				mousePt = e.getPoint();
+			}
+			e.getComponent().repaint();
+		}
+	}
+
+	public JToolBar getControlPanel() {
+		return control;
+	}
+
+	/**
+	 * Toolbar for transitions graph's creation
+	 * 
+	 * @author Claudio Savaglio
+	 * 
+	 */
+	// Actions used to perform specific tasks
+	private class ControlPanel extends JToolBar
+	{
+		/**
+		 * create a new node
+		 */
+		private Action newNode = new NewNodeAction("New");
+		private Action clearAll = new ClearAction("Clear");
+		private Action color = new ColorAction("Color");
+		private Action show = new ShowPosturesAction("Show Postures");
+		private Action hide = new HidePosturesAction("Hide Postures");
+		private Action delete = new DeleteAction("Delete");
+		private Action compose = new ComposeAction("Compose Sequence");
+		private Action load = new LoadAction("Load from File");
+		private Action showGraph = new ComposeAction1("Show Graph");
+		private ColorIcon hueIcon = new ColorIcon(Color.blue);
+		private JPopupMenu popup = new JPopupMenu();
+		private Action rename = new TextualizeAction("Textualize Rules");
+
+		//This is... a constructor? -Hunter
+		ControlPanel()
+		{
+			this.setLayout(new FlowLayout(FlowLayout.LEFT));
+			this.setBackground(Color.lightGray);
+			JSpinner js = new JSpinner();
+			js.setModel(new SpinnerNumberModel(RADIUS, 5, 100, 5));
+			js.addChangeListener(new ChangeListener()
+			{
+				@Override
+				public void stateChanged(ChangeEvent e) {
+					JSpinner s = (JSpinner) e.getSource();
+					radius = (Integer) s.getValue();
+					Node.updateRadius(nodes, radius);
+					GraphPanel.this.repaint();
+				}
+			});
+			//Adds the load from file action
+			this.add(load);
+			//Adds button for composing the sequence
+			this.add(new JButton(compose));
+			//Items in the popup menu when a user right-clicks
+			popup.add(new JMenuItem(newNode));
+			popup.add(new JMenuItem(color));
+			popup.add(new JMenuItem(show));
+			popup.add(new JMenuItem(hide));
+			popup.add(new JMenuItem(delete));
+			popup.add(new JMenuItem(rename));
+			popup.add(new JMenuItem(clearAll));
+		}
+
+		/**
+		 * Class for loading a pre-existent transitions graph from a txt file;
+		 * syntax is one string for each line to indicate the node (or template)
+		 * and one <x,y> for each line to indicate an edge (from template x,
+		 * template y is reachable)
+		 * 
+		 * @throws FileNotFoundException
+		 *             change the default name of the input text file!
+		 * @author Claudio Savaglio
+		 * 
+		 */
+		private class LoadAction extends AbstractAction
+		{
+			public LoadAction(String s)
+			{
+				super(s);
+			}
+
+			public void actionPerformed(ActionEvent e) {
+				//System.out.println("method called");
+				int xLoc = 60;
+				int yLoc = 60;
+				BufferedReader br = null;
+				String name;
+				String startPosture;
+				String endPosture;
+				boolean durational = false;
+				boolean transitional = false;
+				//Read from ../../Tools/generated_graph.txt and handle file not found
+				try
+				{
+					br = new BufferedReader(new InputStreamReader(new FileInputStream("../../Tools/generated_graph.txt"))); // path name changed
+				}
+				catch (FileNotFoundException e1)
+				{
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				String line = null;
+				StringTokenizer st = null;
+				try
+				{
+					while ((line = br.readLine()) != null)
+					{
+						line = line.trim();
+						if (line.length() == 0)
+						{
+							continue;
+						}
+						else if (!line.startsWith("%") && !line.startsWith("$"))
+						{
+							System.out.println(line);
+							Point p = mousePt.getLocation();
+							p.setLocation(xLoc, yLoc);
+							yLoc += 80;
+							if (yLoc >= 440)
+							{
+								yLoc = 60;
+								xLoc += 140;
+							}
+							Color color = control.hueIcon.getColor();
+							st = new StringTokenizer(line, ",<>");
+							startPosture = st.nextToken().trim();
+							name = st.nextToken().trim();
+							endPosture = st.nextToken().trim();
+							if (!postures.contains(startPosture))
+							{
+								postures.add(startPosture);
+							}
+							if (!postures.contains(endPosture))
+							{
+								postures.add(endPosture);
+							}
+							Node n = new Node(p, radius, color, name, startPosture, endPosture,durational,transitional);
+							n.setSelected(true);
+							nodes.add(n);
+							line = "";
+						}
+						else if (line.startsWith("$"))
+						{
+							st = new StringTokenizer(line, "$");
+							String tmp = st.nextToken().trim();
+							if (tmp.equals("D"))
+							{
+								durational = true;
+							}
+							else if(tmp.equals("T"))
+							{
+								transitional = true;
+							}
+						}
+						else
+						{
+							load.setEnabled(false);
+						}
+					} // end of while loop
+					br.close();
+					redrawEdges();
+				}
+				catch (IOException e1)
+				{
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				//Make sure that no nodes are selected at startup
+				Node.selectNone(nodes);
+				showGraph.actionPerformed(e);
+			}
+		}
+
+		/**
+		 * From the transitions graph showed in the frame, create the relative
+		 * text file with the known syntax @see LoadAction
+		 * 
+		 * @throws FileNotFoundException
+		 *             change the default name of the output text file!
+		 * 
+		 * @author Claudio Savaglio
+		 * 
+		 */
+		class TextualizeAction extends AbstractAction
+		{
+			boolean durationalMovements = false;
+			boolean transitionalMovements = false;
+			
+			public TextualizeAction(String s)
+			{
+				super(s);
+			}
+
+			public void actionPerformed(ActionEvent e) {
+				PrintStream ps = null;
+				
+				try
+				{
+					ps = new PrintStream(new FileOutputStream("../../Tools/generated_graph" + System.currentTimeMillis() + ".txt")); // changed path
+				}
+				catch (FileNotFoundException e1)
+				{
+					JOptionPane.showMessageDialog(null, "Did not find path ../../Tools/, please verify that the folder exists", "Error", JOptionPane.ERROR_MESSAGE);
+					e1.printStackTrace();
+				}
+				for (int i = 0; i < nodes.size(); i++)
+				{
+					if(nodes.get(i).hasDurationalProperty()&&!durationalMovements)
+					{
+						ps.println("$D");
+						durationalMovements = true;
+					}
+					if(nodes.get(i).isTransitional()&&!transitionalMovements)
+					{
+						ps.println("$T");
+						transitionalMovements = true;
+					}
+					
+					ps.println("<" + nodes.get(i).getStartPosture() + " , " + nodes.get(i).getName() + " , " + nodes.get(i).getEndPosture() + ">");
+					
+				}
+				ps.close();
+			}
+		}
+	}
+
+	/**
+	 * Clear all the existing nodes and edges
+	 * 
+	 * @author Claudio Savaglio
+	 * 
+	 */
+	private class ClearAction extends AbstractAction
+	{
+		public ClearAction(String name)
+		{
+			super(name);
+		}
+
+		public void actionPerformed(ActionEvent e) {
+			nodes.clear();
+			edges.clear();
+			repaint();
+		}
+	}
+
+	/**
+	 * Select the colors of the nodes
+	 * 
+	 * @author Claudio Savaglio
+	 * 
+	 */
+	private class ColorAction extends AbstractAction
+	{
+		public ColorAction(String name)
+		{
+			super(name);
+		}
+
+		public void actionPerformed(ActionEvent e) {
+			Color color = control.hueIcon.getColor();
+			color = JColorChooser.showDialog(GraphPanel.this, "Choose a color", color);
+			if (color != null)
+			{
+				Node.updateColor(nodes, color);
+				control.hueIcon.setColor(color);
+				control.repaint();
+				repaint();
+			}
+		}
+	}
+
+	/**
+	 * Shows the start and end postures below each movement node
+	 */
+	private class ShowPosturesAction extends AbstractAction
+	{
+		public ShowPosturesAction(String name)
+		{
+			super(name);
+		}
+		public void actionPerformed(ActionEvent e) {
+			posturesVisible = true;
+			repaint();
+		}
+	}
+	
+	/**
+	 * Hides the start and end postures below each movement node
+	 */
+	private class HidePosturesAction extends AbstractAction
+	{
+		public HidePosturesAction(String name)
+		{
+			super(name);
+		}
+		public void actionPerformed(ActionEvent e) {
+			posturesVisible = false;
+			repaint();
+		}
+	}
+	
+	/**
+	 * Remove the selected node
+	 * 
+	 * @author Claudio Savaglio
+	 * 
+	 */
+	private class DeleteAction extends AbstractAction
+	{
+		public DeleteAction(String name)
+		{
+			super(name);
+		}
+
+		public void actionPerformed(ActionEvent e) {
+			ListIterator<Node> iter = nodes.listIterator();
+			while (iter.hasNext())
+			{
+				Node n = iter.next();
+				if (n.isSelected())
+				{
+					deleteEdges(n);
+					iter.remove();
+				}
+			}
+			repaint();
+		}
+
+		private void deleteEdges(Node n) {
+			ListIterator<Edge> iter = edges.listIterator();
+			while (iter.hasNext())
+			{
+				Edge e = iter.next();
+				if (e.n1 == n || e.n2 == n)
+				{
+					iter.remove();
+				}
+			}
+		}
+	}
+
+	private void redrawEdges() {
+		edges.clear();
+		for (int u = 0; u < nodes.size(); u++)
+		{
+			for (int uu = 0; uu < nodes.size(); uu++)
+			{
+				//System.out.println(nodes.get(u).getEndPosture() + " , " + nodes.get(uu).getStartPosture());
+				if (nodes.get(u).getEndPosture().trim().equals(nodes.get(uu).getStartPosture().trim()))
+				{
+					edges.add(new Edge(nodes.get(u), nodes.get(uu)));
+				}
+			}
+		}
+	}
+
+	/**
+	 * Create a new node
+	 * 
+	 * @author Claudio Savaglio
+	 * 
+	 */
+	private class NewNodeAction extends AbstractAction
+	{
+		public NewNodeAction(String name)
+		{
+			super(name);
+		}
+
+		public void actionPerformed(ActionEvent e) {
+			Node.selectNone(nodes);
+			Point p = mousePt.getLocation();
+			Color color = control.hueIcon.getColor();
+			this.createNewVertice(p, color);
+			redrawEdges();
+			repaint();
+		}
+
+		//Prompts the user to create a new movement, and allows them to create a new posture category along the way -Hunter
+		private void createNewVertice(Point pnt, Color c) {
+			boolean dur,trans;
+			dur = trans = false;
+			String name = JOptionPane.showInputDialog(null, "Input a name for the movement", "Name the movement", JOptionPane.INFORMATION_MESSAGE);
+			if(name.equals(""))
+			{
+				name = "Untitled";
+			}
+			postures.add("New");
+			Object[] possibilities = postures.toArray();//{"Standing", "Sitting", "Lying", "New"};
+			String start = (String) JOptionPane.showInputDialog(null, "Select the starting posture of the movement or add a new one", "Start posture", JOptionPane.PLAIN_MESSAGE, null, possibilities, postures.get(0));
+			if (start == "New")
+			{
+				start = this.createNewPosture(JOptionPane.showInputDialog(null, "Input a name for the posture", "Name the posture", JOptionPane.QUESTION_MESSAGE));
+				possibilities = postures.toArray();
+			}
+			String end = (String) JOptionPane.showInputDialog(null, "Select the ending posture of the movement or add a new one", "End posture", JOptionPane.PLAIN_MESSAGE, null, possibilities, postures.get(0));
+			if (end == "New")
+			{
+				end = this.createNewPosture(JOptionPane.showInputDialog(null, "Input a name for the posture", "Name the posture", JOptionPane.QUESTION_MESSAGE));
+				possibilities = postures.toArray();
+			}
+			
+			
+			int reply = JOptionPane.showConfirmDialog(null, "Is the movement durational? (Can it be done for an extended period of time continuously?)", "Durational?", JOptionPane.YES_NO_OPTION);
+	        if (reply == JOptionPane.YES_OPTION) {
+	        	dur = true;
+	        	reply = JOptionPane.showConfirmDialog(null, "Is the movement transitional? (Do you need to do some transitional movement to get from basic postures to the movement?)", "Transitional?", JOptionPane.YES_NO_OPTION);
+		        if (reply == JOptionPane.YES_OPTION) {
+		          trans = true;
+		        }
+	        }
+	        
+			postures.remove(postures.size() - 1);
+			Node n = new Node(pnt, radius, c, name, start, end, dur, trans);
+			n.setSelected(true);
+			nodes.add(n);
+		}
+
+		private String createNewPosture(String postureName) {
+			//System.out.println("Creating the posture");
+			postures.remove(postures.size() - 1);
+			postures.add(postureName);
+			postures.add("New");
+			return postureName;
+		}
+	}
+
+	/**
+	 * From the given transitions graph, allowing data synthesis
+	 * 
+	 * @author Claudio Savaglio
+	 * 
+	 */
+	private class ComposeAction extends AbstractAction
+	{
+		public ComposeAction(String name)
+		{
+			super(name);
+		}
+
+		public void actionPerformed(ActionEvent e) {
+			DiaryGenerationMenu mld;
+			try
+			{
+				PrintStream mvmntlist = new PrintStream(new FileOutputStream("../../Tools/movement_list.txt"));
+				
+				for(int i = 0; i<nodes.size(); i++)
+				{
+					if(nodes.get(i).isTransitional())
+					{
+						mvmntlist.println(nodes.get(i).getName() + "_transitionIn");
+						mvmntlist.println(nodes.get(i).getName());
+						mvmntlist.println(nodes.get(i).getName() + "_transitionOut");
+					}
+					else
+					{
+						mvmntlist.println(nodes.get(i).getName());
+					}
+				}
+				mvmntlist.close();
+				
+				mld = new DiaryGenerationMenu(nodes, edges);
+				mld.start();
+			}
+			catch (FileNotFoundException e1)
+			{
+				JOptionPane.showMessageDialog(null, "Did not find path ../../Tools/, please verify that the folder exists", "Error", JOptionPane.ERROR_MESSAGE);
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			repaint();
+		}
+	}
+
+	//Used only once, repaints the screen when load from file
+	private class ComposeAction1 extends AbstractAction
+	{
+		public ComposeAction1(String name)
+		{
+			super(name);
+		}
+
+		@Override
+		public void actionPerformed(ActionEvent arg0) {
+			repaint();
+			// TODO Auto-generated method stub
+		}
+	}
+
+	/**
+	 * An Edge is a pair of Nodes.
+	 */
+	public static class Edge
+	{
+		private Node n1;
+		private Node n2;
+
+		public Edge(Node n1, Node n2)
+		{
+			this.n1 = n1;
+			this.n2 = n2;
+		}
+
+		public String getVertex() {
+			return ("<" + n1.getName() + " , " + n2.getName() + ">");
+		}
+
+		public void draw(Graphics g) {
+			Point p1 = n1.getLocation();
+			Point p2 = n2.getLocation();
+			g.setColor(Color.RED);
+			int arrowX;
+			int arrowY;
+			if (n1.selected)
+			{
+				if (p1.x > p2.x + 50 + Node.getR())
+				{
+					arrowX = p2.x + Node.getR();
+				}
+				else if (p1.x < p2.x + Node.getR() + 50 && p1.x > p2.x - Node.getR() - 50)
+				{
+					arrowX = p2.x;
+				}
+				else
+				{
+					arrowX = p2.x - Node.getR();
+				}
+				if (p1.y > p2.y + 50 + Node.getR())
+				{
+					arrowY = p2.y + Node.getR();
+				}
+				else if (p1.y < p2.y + Node.getR() + 50 && p1.y > p2.y - Node.getR() - 50)
+				{
+					arrowY = p2.y;
+				}
+				else
+				{
+					arrowY = p2.y - Node.getR();
+				}
+				drawArrow(g, p1.x, p1.y, arrowX, arrowY, 15, 15);//p2.x-Node.getR(),p2.y-Node.getR(),15,15);
+			}
+		}
+
+		public String getV1() {
+			return n1.getName();
+		}
+
+		public String getV2() {
+			return n2.getName();
+		}
+	}
+	
+	/**
+	 * ***********************************************
+	 * Class Node
+	 * ***********************************************
+	 * Description: A node in the graph. Each node represents a movement that has a start and end posture.
+	 * Movements can also be durational - meaning that they can be done for an indefinite period of time, e.g. sitting or walking.
+	 * Durational movements can be transitional - meaning that there must be a transition to get from basic starting posture
+	 * to the durational action and another transition to reach the ending posture, e.g. kneeling or using a phone 
+	 * 
+	 * *************
+	 * Constructors:
+	 * public Node(Point p, int r, Color color, String nome, String startPos, String endPos)
+	 * public Node(Point p, int r, Color color, String nome, String startPos, String endPos, boolean duration, boolean trans)
+	 * *************
+	 * Get Methods:
+	 * hasDurationalProperty() - returns true if method is durational
+	 * isTransitional() - returns true if method is transitional
+	 * getStartPosture()
+	 * getEndPosture()
+	 * getName()
+	 * getLocation() - returns location of Node
+	 */
+	public static class Node
+	{
+		private Point p;
+		private static int r;
+		private Color color;
+		private boolean selected = false;
+		private Rectangle b = new Rectangle();
+		private String name;
+		private String startPosture;
+		private String endPosture;
+		private boolean hasDuration;
+		private boolean transitional;
+
+		public Node(Point p, int r, Color color, String nome, String startPos, String endPos)
+		{
+			this.p = p;
+			this.setR(r);
+			this.color = color;
+			name = nome;
+			setBoundary(b);
+			startPosture = startPos;
+			endPosture = endPos;
+		}
+
+		public Node(Point p, int r, Color color, String nome, String startPos, String endPos, boolean duration, boolean trans)
+		{
+			this.p = p;
+			this.setR(r);
+			this.color = color;
+			name = nome;
+			setBoundary(b);
+			startPosture = startPos;
+			endPosture = endPos;
+			hasDuration = duration;
+			transitional = trans;
+		}
+
+		public boolean hasDurationalProperty() {
+			return hasDuration;
+		}
+		
+		public boolean isTransitional(){
+			return transitional;
+		}
+
+		public String getStartPosture() {
+			return startPosture;
+		}
+
+		public String getEndPosture() {
+			return endPosture;
+		}
+
+		public String getName() {
+			return name;
+		}
+
+		/**
+		 * Calculate this node's rectangular boundary.
+		 */
+		private void setBoundary(Rectangle b) {
+			b.setBounds(p.x - getR(), p.y - getR(), 2 * getR(), 2 * getR());
+		}
+
+		/**
+		 * Draw this node.
+		 */
+		public void draw(Graphics g) {
+			g.setColor(Color.black);
+			g.drawString(name, b.x, b.y);
+			if(posturesVisible)
+				g.drawString(startPosture+" , "+endPosture,b.x,b.y+b.height+r);
+			g.setColor(this.color);
+			g.fillOval(b.x, b.y, b.width, b.height);
+			g.setColor(Color.black);
+			g.drawOval(b.x, b.y, b.width, b.height);
+			if (selected)
+			{
+				g.setColor(Color.red); //was darkGray
+				g.fillOval(b.x, b.y, b.width, b.height);
+				g.setColor(Color.black);
+				g.drawOval(b.x, b.y, b.width, b.height);
+			}
+		}
+
+		/**
+		 * Return this node's location.
+		 */
+		public Point getLocation() {
+			return p;
+		}
+
+		/**
+		 * Return true if this node contains p.
+		 */
+		public boolean contains(Point p) {
+			return b.contains(p);
+		}
+
+		/**
+		 * Return true if this node is selected.
+		 */
+		public boolean isSelected() {
+			return selected;
+		}
+
+		/**
+		 * Mark this node as selected.
+		 */
+		public void setSelected(boolean selected) {
+			this.selected = selected;
+		}
+
+		/**
+		 * Collected all the selected nodes in list.
+		 */
+		public static void getSelected(List<Node> list, List<Node> selected) {
+			selected.clear();
+			for (Node n : list)
+			{
+				if (n.isSelected())
+				{
+					selected.add(n);
+				}
+			}
+		}
+
+		/**
+		 * Select no nodes.
+		 */
+		public static void selectNone(List<Node> list) {
+			for (Node n : list)
+			{
+				n.setSelected(false);
+			}
+		}
+
+		/**
+		 * Select a single node; return true if not already selected.
+		 */
+		public static boolean selectOne(List<Node> list, Point p) {
+			for (Node n : list)
+			{
+				if (n.contains(p))
+				{
+					if (!n.isSelected())
+					{
+						Node.selectNone(list);
+						n.setSelected(true);
+						hm.put(n.getName(), cont);
+						//System.out.println(n.getName()+"="+cont);
+					}
+					return true;
+				}
+			}
+			return false;
+		}
+
+		/**
+		 * Select each node in r.
+		 */
+		public static void selectRect(List<Node> list, Rectangle r) {
+			for (Node n : list)
+			{
+				n.setSelected(r.contains(n.p));
+			}
+		}
+
+		/**
+		 * Toggle selected state of each node containing p.
+		 */
+		public static void selectToggle(List<Node> list, Point p) {
+			int cont2 = 2;
+			for (Node n : list)
+			{
+				if (n.contains(p))
+				{
+					n.setSelected(!n.isSelected());
+					hm.put(n.getName(), cont2);
+					// System.out.println("toggle "+n.getName()+"="+cont2);
+				}
+			}
+		}
+
+		/**
+		 * Update each node's position by d (delta).
+		 */
+		public static void updatePosition(List<Node> list, Point d) {
+			for (Node n : list)
+			{
+				if (n.isSelected())
+				{
+					n.p.x += d.x;
+					n.p.y += d.y;
+					n.setBoundary(n.b);
+				}
+			}
+		}
+
+		/**
+		 * Update each node's radius r.
+		 */
+		public static void updateRadius(List<Node> list, int r) {
+			for (Node n : list)
+			{
+				if (n.isSelected())
+				{
+					n.setR(r);
+					n.setBoundary(n.b);
+				}
+			}
+		}
+
+		/**
+		 * Update each node's color.
+		 */
+		public static void updateColor(List<Node> list, Color color) {
+			for (Node n : list)
+			{
+				if (n.isSelected())
+				{
+					n.color = color;
+				}
+			}
+		}
+
+		public static int getR() {
+			return r;
+		}
+
+		public void setR(int r) {
+			Node.r = r;
+		}
+	}
+
+	private static class ColorIcon implements Icon
+	{
+		private static final int WIDE = 20;
+		private static final int HIGH = 20;
+		private Color color;
+
+		public ColorIcon(Color color)
+		{
+			this.color = color;
+		}
+
+		public Color getColor() {
+			return color;
+		}
+
+		public void setColor(Color color) {
+			this.color = color;
+		}
+
+		public void paintIcon(Component c, Graphics g, int x, int y) {
+			g.setColor(color);
+			g.fillRect(x, y, WIDE, HIGH);
+		}
+
+		public int getIconWidth() {
+			return WIDE;
+		}
+
+		public int getIconHeight() {
+			return HIGH;
+		}
+	}
+}
