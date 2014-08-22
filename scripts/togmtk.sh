@@ -98,3 +98,7 @@ for (( p=0; p < 4; p+=1 )); do
     done 
   done
 done
+
+cd gmtk
+$FF/obs-print -of1 most.list -fmt1 ascii -nf1 54 -ni1 2 -o most.pfile -ofmt pfile
+$FF/obs-info -of1 most.pfile
