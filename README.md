@@ -1,6 +1,5 @@
 MoST
 ====
 
-Terrell is the manager of this repo. Please contact Terrell if you have any question.
-Terrell email: tbennett@utdallas.edu.
-Please update the readme whenever you are here, terrell.
+Hunter is currently the manager for this repository. If you have any questions or concerns, contact me:
+Email: hunter.massey@utdallas.edu.

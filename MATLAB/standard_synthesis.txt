@@ -1,6 +1,0 @@
-START , M2 , Fri Aug 08 12:49:35 CDT 2014
-Lie_to_sit   /B, 
-Sit_to_stand   /B, 
-Walking   /B,  D-6
-Stand_to_sit   /B, 
-STOP!  * 0:0{Right Ankle, Waist, Right Arm, Right Wrist, Left Thigh, Right Thigh, }  <Acc X, Acc Y, Acc Z, Gyr X, Gyr Y, Gyr Z, >
