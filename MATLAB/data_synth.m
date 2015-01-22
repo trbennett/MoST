@@ -258,6 +258,20 @@ for i = 1:numel(nodes_used)
     Data(:,10)=SubstT;
     Data(:,12)=SubstT;
 
+    % Adding a smoothing function to transitions between movements
+    % This should allow for more realistic movement transiton
+    for b = 1:numel(annt_vec)-1
+        % Determine 25 samples before (tpb) and after(tpa) transition position
+        tpb = annt_vec(b)-25;
+        tpa = annt_vec(b)+25;
+        Data(tpb:tpa,1) = smooth(Data(tpb:tpa,1),10);
+        Data(tpb:tpa,2) = smooth(Data(tpb:tpa,2),10);
+        Data(tpb:tpa,3) = smooth(Data(tpb:tpa,3),10);
+        Data(tpb:tpa,4) = smooth(Data(tpb:tpa,4),10);
+        Data(tpb:tpa,5) = smooth(Data(tpb:tpa,5),10);
+        Data(tpb:tpa,6) = smooth(Data(tpb:tpa,6),10);
+    end
+    
     nodeDataFinal = fopen(nodeDataFinalFilePath, 'W');
     
     disp(sprintf('Writing data file for node %d', k));
