@@ -164,20 +164,7 @@ public class DiaryGenerationMenu implements ActionListener, ItemListener
 			x.setEnabled(false);
 		}
 		menuBar.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.darkGray));
-		/**
-		 * I am willing to bet cash money that this segment doesn't do anything
-		 * -Hunter
-		 */
-		/*
-		for(final JButton bb:b) bb.addActionListener(new ActionListener() {
-		    @Override
-		    public void actionPerformed(ActionEvent actionEvent) {
-		               	// Clear two values.
-		    	diary_out = diary_out + bb.getName();
-		    	diaryStringStack.add(bb.getName());        	
-		    	listModel.addElement(bb.getName());
-		    }
-		});*/
+
 		return menuBar;
 	}
 
