@@ -76,6 +76,7 @@ mvmt = {'1', '2', 'Kneeling', 'Step_forward_backward', 'Walking', 'Looking_back_
 cd('MATLAB');
 anntNum = 1;
 anntCnt = 0;
+annt_vec = zeros(1,totalNumMovements);
 
 
 % Open empty files for the sequence file and the annotation file
@@ -227,6 +228,7 @@ while 1
             %%% Update Annotation %%%
             anntCnt = anntCnt + Nrows*repetition;
             fprintf(annotation, '%d,%d\r\n', anntCnt,anntNum);
+            annt_vec(anntNum) = anntCnt;
             anntNum = anntNum + 1;
             
         end
