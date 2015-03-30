@@ -913,6 +913,53 @@ function keyPressFcn(~,evt)
     end
 
 end
+% disposal of key press event
+function keyPressFcn(~,evt)
+    fh = getfh();
+    vs = get(fh, 'UserData');
+    stop_play = false;
+    switch(evt.Key)
+        case 'rightarrow' % move a little to the right
+            stop_play = true;
+            if(strcmp(evt.Modifier,'shift'))
+                advancePos(1); % if shift is pressed, move just one sample
+            else
+                advanceFrame(1); % otherwise move several 
+            end
+        case 'leftarrow' % move a little to the left
+            stop_play = true;
+            if(strcmp(evt.Modifier,'shift'))
+                advancePos(-1); % if shift is pressed, move just one sample
+            else
+                advanceFrame(-1); % otherwise move several
+            end
+        case 'uparrow' % play the video
+            %advancePos(vs.jump_big);
+            if(~vs.vid_playing)
+                playVideo(1)
+            else
+                stop_play = true;
+            end
+        case 'downarrow' % play the video at 1/3 speed
+            %advancePos(vs.jump_big);
+            if(~vs.vid_playing)
+                playVideo(1/3)
+            else
+                stop_play = true;
+            end
+        case 'space'
+            addAnnotation();
+        case 'd'
+            vs = get(fh,'UserData');
+            vs.delete_mode = ~vs.delete_mode;
+            set(fh,'UserData',vs);
+            updateAnnoteLabel();
+        otherwise
+            if(~isempty(evt.Character) && evt.Character <= '9' && evt.Character >= '1')
+                label = evt.Character-'0';
+                setAnnoteLabel(label);
+            end
+    end
 
 function WindowButtonDownFcn(~, ~)
 
