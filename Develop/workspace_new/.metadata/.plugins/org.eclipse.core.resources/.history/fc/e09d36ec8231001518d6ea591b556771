@@ -1,0 +1,377 @@
+import java.awt.BorderLayout;
+import java.awt.Container;
+import java.awt.EventQueue;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JSpinner;
+import javax.swing.SpinnerNumberModel;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
+
+
+@SuppressWarnings("serial")
+public class StartMenu extends JFrame{
+
+	public StartMenu(){
+		super("Diary Generator: Select Options");
+		
+		initializeUI(); // generate all the basic UI objects
+	}
+	
+	// Generate basic UI structure
+	private void initializeUI(){
+		setDefaultCloseOperation(EXIT_ON_CLOSE);
+		setSize(600, 500);
+		
+		Container contentPane = this.getContentPane();
+		contentPane.setLayout(new BorderLayout());
+		
+		JPanel pane = new JPanel(new GridBagLayout());
+		GridBagConstraints constraints = new GridBagConstraints();
+		constraints.insets = new Insets(2,2,2,2);			// Add padding to this grid
+		
+		// Spinner to change the number of trials to generate from the subject data
+		JLabel trialLabel = new JLabel("Trials to generate:");
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+		constraints.anchor = GridBagConstraints.FIRST_LINE_START; //top left of space
+		constraints.gridx = 0;		 //first column
+		constraints.gridwidth = 1;   //1 column wide
+		constraints.gridy = 0;       //first row
+		pane.add(trialLabel, constraints);
+		
+		SpinnerNumberModel model = new SpinnerNumberModel(1, 0, 500, 1);
+		JSpinner trials = new JSpinner(model);
+		constraints.gridx = 1; // second column
+		constraints.gridwidth = 1; // 1 column wide
+		constraints.gridy = 0; // first row
+		pane.add(trials, constraints);
+		
+		// Add Subjects checkbox, controls what kind of subjects will be generated from
+		JLabel subjectsLabel = new JLabel("Subjects:");
+		constraints.gridx = 0; // first column
+		constraints.gridy = 1; // second row
+		pane.add(subjectsLabel, constraints);
+		
+		JCheckBox allSubjectsCheckBox = new JCheckBox("All", true);
+		allSubjectsCheckBox.setName("allsubjchkbox");
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+		constraints.anchor = GridBagConstraints.FIRST_LINE_START; //top left of space
+		constraints.gridx = 0;		 //first column
+		constraints.gridwidth = 1;   //1 column wide
+		constraints.gridy = 2;       //Second row
+		pane.add(allSubjectsCheckBox, constraints);
+		
+		// Add Gender checkboxes
+		JLabel genderLabel = new JLabel("Gender:");
+		genderLabel.setEnabled(false);
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+		constraints.anchor = GridBagConstraints.LINE_END; //center of space
+		constraints.gridx = 0;		 //first column
+		constraints.gridwidth = 1;   //1 column wide
+		constraints.gridy = 3;       //fourth row
+		pane.add(genderLabel, constraints);
+		
+		JCheckBox maleCheckBox = new JCheckBox("Male",true);
+		maleCheckBox.setEnabled(false);
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+		constraints.anchor = GridBagConstraints.LINE_START; //top left of space
+		constraints.gridx = 1;		 //second column
+		constraints.gridwidth = 1;   //1 column wide
+		constraints.gridy = 3;       //fourth row
+		pane.add(maleCheckBox, constraints);
+		
+		JCheckBox femaleCheckBox = new JCheckBox("Female",true);
+		femaleCheckBox.setEnabled(false);
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+		constraints.anchor = GridBagConstraints.LINE_START; //top left of space
+		constraints.gridx = 2;		 //third column
+		constraints.gridwidth = 1;   //1 column wide
+		constraints.gridy = 3;       //fourth row
+		pane.add(femaleCheckBox, constraints);
+		
+		// Add Age range spinners
+		JLabel ageRangeLabel = new JLabel("Age Range: ");
+		ageRangeLabel.setEnabled(false);
+		constraints.gridx = 0; // first column
+		constraints.gridy = 4; // fifth row
+		pane.add(ageRangeLabel, constraints);
+		
+		// TODO: Change this spinner model to select minimum/maximum ages
+		SpinnerNumberModel ageModel = new SpinnerNumberModel(18, 0, 36, 1);
+		JSpinner ageMin = new JSpinner(ageModel);
+		ageMin.setEnabled(false);
+		constraints.gridx = 1; // second column
+		pane.add(ageMin, constraints);
+		
+		SpinnerNumberModel ageMaxModel = new SpinnerNumberModel(18, 0, 36, 1);
+		JSpinner ageMax = new JSpinner(ageMaxModel);
+		ageMax.setValue(36);
+		ageMax.setEnabled(false);
+		constraints.gridx = 2; // third column
+		pane.add(ageMax, constraints);
+		
+		// Sensors checkbox to choose what types of sensors to generate data from
+		JLabel sensorsLabel = new JLabel("Sensors:");
+		constraints.gridx = 0; // first column
+		constraints.gridy = 5; // sixth row
+		pane.add(sensorsLabel, constraints);
+		
+		JCheckBox allSensorsCheckBox = new JCheckBox("All",true);
+		allSensorsCheckBox.setName("allsensorschkbox");
+		constraints.gridy = 6; // seventh row
+		pane.add(allSensorsCheckBox, constraints);
+		
+		JLabel locationsLabel = new JLabel("Locations");
+		locationsLabel.setEnabled(false);
+		constraints.gridx = 1; // second column
+		constraints.gridy = 7; // eighth row
+		pane.add(locationsLabel, constraints);
+		
+		JCheckBox rightAnkleCheckBox = new JCheckBox("Right Ankle", true);
+		rightAnkleCheckBox.setEnabled(false);
+		constraints.gridx = 0; // first column
+		constraints.gridy = 8; //ninth row
+		pane.add(rightAnkleCheckBox, constraints);
+		
+		JCheckBox waistCheckBox = new JCheckBox("Waist", true);
+		waistCheckBox.setEnabled(false);
+		constraints.gridx = 1; // second column
+		pane.add(waistCheckBox, constraints);
+		
+		JCheckBox rightArmCheckBox = new JCheckBox("Right Arm", true);
+		rightArmCheckBox.setEnabled(false);
+		constraints.gridx = 2; //third column
+		pane.add(rightArmCheckBox, constraints);
+		
+		JCheckBox rightWristCheckBox = new JCheckBox("Right Wrist", true);
+		rightWristCheckBox.setEnabled(false);
+		constraints.gridx = 0; // first column again
+		constraints.gridy = 9; // tenth row
+		pane.add(rightWristCheckBox, constraints);
+		
+		JCheckBox leftThighCheckBox = new JCheckBox("Left Thigh", true);
+		leftThighCheckBox.setEnabled(false);
+		constraints.gridx = 1; // second column
+		pane.add(leftThighCheckBox, constraints);
+		
+		JCheckBox rightThighCheckBox = new JCheckBox("Right Thigh", true);
+		rightThighCheckBox.setEnabled(false);
+		constraints.gridx = 2; // third column
+		pane.add(rightThighCheckBox, constraints);
+		
+		JLabel modalitiesLabel = new JLabel("Modalities");
+		modalitiesLabel.setEnabled(false);
+		constraints.gridy = 10; // eleventh row
+		constraints.gridx = 1; // first column
+		pane.add(modalitiesLabel, constraints);
+		
+		JCheckBox accXCheckBox = new JCheckBox("Accelerometer X", true);
+		accXCheckBox.setEnabled(false);
+		constraints.gridx = 0;
+		constraints.gridy = 11; // twelfth row
+		pane.add(accXCheckBox, constraints);
+		
+		JCheckBox accYCheckBox = new JCheckBox("Accelerometer Y", true);
+		accYCheckBox.setEnabled(false);
+		constraints.gridx = 1;
+		pane.add(accYCheckBox, constraints);
+		
+		JCheckBox accZCheckBox = new JCheckBox("Accelerometer Z", true);
+		accZCheckBox.setEnabled(false);
+		constraints.gridx = 2;
+		pane.add(accZCheckBox, constraints);
+		
+		JCheckBox gyroXCheckBox = new JCheckBox("Gyroscope X", true);
+		gyroXCheckBox.setEnabled(false);
+		constraints.gridx = 0;
+		constraints.gridy = 12; // thirteenth row
+		pane.add(gyroXCheckBox, constraints);
+		
+		JCheckBox gyroYCheckBox = new JCheckBox("Gyroscope Y", true);
+		gyroYCheckBox.setEnabled(false);
+		constraints.gridx = 1;
+		pane.add(gyroYCheckBox, constraints);
+		
+		JCheckBox gyroZCheckBox = new JCheckBox("Gyroscope Z", true);
+		gyroZCheckBox.setEnabled(false);
+		constraints.gridx = 2;
+		pane.add(gyroZCheckBox, constraints);
+		
+		
+		JButton exitBtn = new JButton("Exit");
+		exitBtn.setName("exitbtn");
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+		constraints.ipady = 0;       //reset to default
+		constraints.anchor = GridBagConstraints.LAST_LINE_START; //bottom of space
+		constraints.gridx = 0;
+		constraints.gridwidth = 1;   //1 column wide
+		constraints.gridy = 13;       //fourteenth row
+		pane.add(exitBtn, constraints);
+		
+		JButton startBtn = new JButton("Start");
+		startBtn.setName("startbtn");
+		constraints.fill = GridBagConstraints.HORIZONTAL;
+		constraints.ipady = 0;       //reset to default
+		constraints.anchor = GridBagConstraints.LAST_LINE_END; //bottom of space
+		constraints.gridx = 2;
+		constraints.gridwidth = 2;   //2 columns wide
+		pane.add(startBtn, constraints);
+		
+		ActionListener chkBoxActionListener = new ActionListener() {
+	      public void actionPerformed(ActionEvent actionEvent) {
+	        JCheckBox chkbox = (JCheckBox)actionEvent.getSource();
+	        switch(chkbox.getName()){
+	        case "allsubjchkbox":
+	        	if(chkbox.isSelected())
+	        	{
+	        		genderLabel.setEnabled(false);
+	        		maleCheckBox.setEnabled(false);
+	        		femaleCheckBox.setEnabled(false);
+	        		ageRangeLabel.setEnabled(false);
+	        		ageMin.setEnabled(false);
+	        		ageMax.setEnabled(false);
+	        	}
+	        	else
+	        	{
+	        		genderLabel.setEnabled(true);
+	        		maleCheckBox.setEnabled(true);
+	        		femaleCheckBox.setEnabled(true);
+	        		ageRangeLabel.setEnabled(true);
+	        		ageMin.setEnabled(true);
+	        		ageMax.setEnabled(true);
+	        	}
+	        	break;
+	        case "allsensorschkbox":
+	        	if(chkbox.isSelected())
+	        	{
+	        		locationsLabel.setEnabled(false);
+	        		rightAnkleCheckBox.setSelected(true);
+	        		rightAnkleCheckBox.setEnabled(false);
+	        		waistCheckBox.setSelected(true);
+	        		waistCheckBox.setEnabled(false);
+	        		rightArmCheckBox.setSelected(true);
+	        		rightArmCheckBox.setEnabled(false);
+	        		rightWristCheckBox.setSelected(true);
+	        		rightWristCheckBox.setEnabled(false);
+	        		leftThighCheckBox.setSelected(true);
+	        		leftThighCheckBox.setEnabled(false);
+	        		rightThighCheckBox.setSelected(true);
+	        		rightThighCheckBox.setEnabled(false);
+	        		modalitiesLabel.setEnabled(false);
+	        		accXCheckBox.setSelected(true);
+	        		accXCheckBox.setEnabled(false);
+	        		accYCheckBox.setSelected(true);
+	        		accYCheckBox.setEnabled(false);
+	        		accZCheckBox.setSelected(true);
+	        		accZCheckBox.setEnabled(false);
+	        		gyroXCheckBox.setSelected(true);
+	        		gyroXCheckBox.setEnabled(false);
+	        		gyroYCheckBox.setSelected(true);
+	        		gyroYCheckBox.setEnabled(false);
+	        		gyroZCheckBox.setSelected(true);
+	        		gyroZCheckBox.setEnabled(false);
+	        	}
+	        	else
+	        	{
+	        		locationsLabel.setEnabled(true);
+	        		rightAnkleCheckBox.setEnabled(true);
+	        		waistCheckBox.setEnabled(true);
+	        		rightArmCheckBox.setEnabled(true);
+	        		rightWristCheckBox.setEnabled(true);
+	        		leftThighCheckBox.setEnabled(true);
+	        		rightThighCheckBox.setEnabled(true);
+	        		modalitiesLabel.setEnabled(true);
+	        		accXCheckBox.setEnabled(true);
+	        		accYCheckBox.setEnabled(true);
+	        		accZCheckBox.setEnabled(true);
+	        		gyroXCheckBox.setEnabled(true);
+	        		gyroYCheckBox.setEnabled(true);
+	        		gyroZCheckBox.setEnabled(true);
+	        	}
+	        	break;
+	        default:
+	        	break;
+	        }
+	        
+	      }
+	    };
+	    
+	    allSubjectsCheckBox.addActionListener(chkBoxActionListener);
+	    allSensorsCheckBox.addActionListener(chkBoxActionListener);
+		
+	    ActionListener btnListener = new ActionListener() {
+	    	public void actionPerformed(ActionEvent e) {
+	    		JButton btn = (JButton)e.getSource();
+	    		switch(btn.getName()){
+	    		case "startbtn":
+	    			// Get genders of subjects to pull data from
+	    			String gender;
+	    			int numTrials;
+	    			if(maleCheckBox.isSelected() && femaleCheckBox.isSelected())
+	    			{
+	    				gender = "A";
+	    			}
+	    			else if(maleCheckBox.isSelected())
+	    			{
+	    				gender = "M";
+	    			}
+	    			else if(femaleCheckBox.isSelected())
+	    			{
+	    				gender = "F";
+	    			}
+	    			else // if no gender selected, pull from any
+	    			{
+	    				gender = "A";
+	    			}
+	    			
+	    			numTrials = (int)trials.getValue();
+	    			
+	    			// TODO: get and pass the list of sensors and modalities to be generated
+	    			
+	    			// Start the main application - need to pass values
+	    			new DiaryGenerator(gender, 18, 36, numTrials).setVisible(true);
+	    			setVisible(false);
+	    			break;
+	    		case "exitbtn":
+	    			// Exit the program
+	    			dispose();
+	    			break;
+	    		default:
+	    			break;
+	    		}
+	    	}
+	    };
+	    
+	    startBtn.addActionListener(btnListener);
+	    exitBtn.addActionListener(btnListener);
+	    
+		contentPane.add(pane);
+		this.pack();
+	}
+	
+	public static void main(String... args) {
+	    EventQueue.invokeLater(new Runnable() {
+	        public void run() {
+	            try {
+	                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+	            } catch (ClassNotFoundException e) {
+	            } catch (InstantiationException e) {
+	            } catch (IllegalAccessException e) {
+	            } catch (UnsupportedLookAndFeelException e) {
+	            }
+	 
+	            new StartMenu().setVisible(true);
+	        }
+	    });
+	}
+	
+}

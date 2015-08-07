@@ -1,0 +1,244 @@
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Container;
+import java.awt.Frame;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.StringTokenizer;
+import java.util.Vector;
+
+import javax.swing.BorderFactory;
+import javax.swing.DefaultListModel;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JList;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JToolBar;
+
+
+@SuppressWarnings("serial")
+public class DiaryGenerator extends JFrame{
+	
+	static ArrayList<String> diaryOutput;				// The movement list that constitutes the diary output (non-natural language)
+	static DefaultListModel<String> defaultListModel;	// the default list model that contains movement list in natural language
+	JList<String> mvmtListDisplay;						// The list display for user selected movements
+	
+	// The necessary data to construct the hypergraph
+	List<Node> nodes;									// The nodes (movements) that are within the hypergraph
+	List<Edge> edges;									// The edges between each individual movement (via the hypergraph) - represents what movements can be done after each other
+	Vector<String> postures;							// The posture groups that organize the movements in the hypergraph
+	
+	String gender;										// The gender of subject to synthesize, represented as "M", "F", or "A" for all
+	int minAge, maxAge;									// Minimum and maximum age of subjects to synthesize data from
+	int numTrials;										// Number of trials to be generated upon running synthesize
+	
+	public DiaryGenerator(String gender, int minAge, int maxAge, int numTrials){
+		super("Diary Generator");
+		
+		loadMovementData();
+		initializeUI();
+		
+		String startString = "START , " + gender + " , " + minAge + "-" + maxAge; 
+		defaultListModel.insertElementAt(startString, defaultListModel.size());
+	}
+	
+	// Populate hypergraph based on text file with base movement data information
+	private void loadMovementData()
+	{
+		nodes = new ArrayList<Node>();
+		edges = new ArrayList<Edge>();
+		postures = new Vector<String>();
+		BufferedReader br = null;
+		String startPosture;
+		String name;
+		String endPosture;
+		String duration;
+		boolean durational = false;
+		String transition;
+		boolean transitional = false;
+		//Read from ../../Tools/generated_graph.txt and handle file not found
+		try
+		{
+			br = new BufferedReader(new InputStreamReader(new FileInputStream("../../Tools/generated_graph.txt"))); // path name changed
+		}
+		catch (FileNotFoundException e1)
+		{
+			JOptionPane.showMessageDialog(null, "Did not find file ../../Tools/generated_graph.txt, please verify that the file exists", "Error", JOptionPane.ERROR_MESSAGE);
+			e1.printStackTrace();
+		}
+		String line = null;
+		StringTokenizer st = null;
+		try
+		{
+			while ((line = br.readLine()) != null)
+			{
+				line = line.trim();
+				if (line.length() == 0)
+				{
+					continue;
+				}
+				else if (!line.startsWith("%"))
+				{
+					//System.out.println(line);
+					st = new StringTokenizer(line, ",<>");
+					startPosture = st.nextToken().trim();
+					name = st.nextToken().trim();
+					endPosture = st.nextToken().trim();
+					if (!postures.contains(startPosture))
+					{
+						postures.add(startPosture);
+					}
+					if (!postures.contains(endPosture))
+					{
+						postures.add(endPosture);
+					}
+					duration = st.nextToken().trim();
+					if (duration.equals("Y"))
+					{
+						durational = true;
+					}
+					transition = st.nextToken().trim();
+					if (transition.equals("Y"))
+					{
+						transitional = true;
+					}
+					Node n = new Node(name, startPosture, endPosture,durational,transitional);
+					nodes.add(n);
+					durational = false;
+					transitional = false;
+					line = "";
+				}
+			} // end of while loop
+			br.close();
+		}
+		catch (IOException e1)
+		{
+			e1.printStackTrace();
+		}
+		
+		for (int i = 0; i < nodes.size(); i++)
+		{
+			for (int j = 0; j < nodes.size(); j++)
+			{
+				//System.out.println(nodes.get(u).getEndPosture() + " , " + nodes.get(uu).getStartPosture());
+				if (nodes.get(i).getEndPosture().trim().equals(nodes.get(j).getStartPosture().trim()))
+				{
+					edges.add(new Edge(nodes.get(i), nodes.get(j)));
+				}
+			}
+		}
+		
+	}
+	
+	private void initializeUI(){
+		setDefaultCloseOperation(EXIT_ON_CLOSE);
+		setExtendedState(Frame.MAXIMIZED_BOTH);
+		
+		
+		Container contentPane = this.getContentPane();
+		contentPane.setLayout(new BorderLayout());
+		
+		// Set the list model for the movement list display
+		// The model holds all the elements to be displayed
+		defaultListModel = new DefaultListModel<String>();
+		mvmtListDisplay = new JList<String>();
+		mvmtListDisplay.setModel(defaultListModel);
+		JScrollPane scrollPane = new JScrollPane();
+		scrollPane.setViewportView(mvmtListDisplay);
+		contentPane.add(scrollPane, BorderLayout.CENTER);
+		
+		// Setup the toolbar containing movement buttons and options
+		setupToolbar(contentPane);
+		
+		this.pack();
+	}
+	
+	private void setupToolbar(Container contentPane)
+	{
+		JToolBar mvmtMenu = new JToolBar(JToolBar.VERTICAL);
+		mvmtMenu.setFloatable(false);
+		mvmtMenu.setMargin(new Insets(10, 5, 5, 5));
+		
+		// In the event that a movement has duration, show a menu to select the duration
+		ActionListener durationalMovementAction = new ActionListener(){
+			@Override
+        	public void actionPerformed(ActionEvent arg0) {
+				MovementOptionMenu movementOptionMenu = new MovementOptionMenu();
+				int result = JOptionPane.showConfirmDialog(null, movementOptionMenu,
+                "Options", JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE);
+				if (result == JOptionPane.OK_OPTION) {
+					System.out.println(movementOptionMenu.getDuration());
+					//TODO: Add the movement with duration option to the diary
+				}
+			}
+		};
+		
+		// In the event that a movement has no special characteristics, add it to the diary
+		ActionListener addMovementAction = new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				// TODO: Add the movement to the diary
+			}
+		};
+		
+		// TODO: Create ActionListener for option buttons
+		// TODO: Add all the basic options to the toolbar
+		JButton rstBtn = new JButton("Reset Diary");
+		mvmtMenu.add(rstBtn);
+		
+		JButton generateBtn = new JButton("Generate Data");
+		mvmtMenu.add(generateBtn);
+		
+		JButton startLoopBtn = new JButton("Start Loop");
+		mvmtMenu.add(startLoopBtn);
+		
+		JButton endLoopBtn = new JButton("End Loop");
+		mvmtMenu.add(endLoopBtn);
+		
+		// Does nothing but separate options from movement buttons
+		JButton separator = new JButton("----------------");
+		separator.setEnabled(false);
+		mvmtMenu.add(separator);
+		
+		// Add all the movements to the toolbar
+		for(int i = 0; i < nodes.size(); i++)
+		{
+			// Create a button for each movement
+			JButton tmp = new JButton(nodes.get(i).getName());
+			tmp.setMargin(new Insets(2, 5, 2, 5));
+			// If that movement has duration, show popup menu when clicked
+			if(nodes.get(i).isDurational()){
+				tmp.addActionListener(durationalMovementAction);
+			}
+			else {
+				// TODO: add ActionListener that places this movement in the diary
+			}
+			mvmtMenu.add(tmp);
+		}
+		
+		mvmtMenu.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.darkGray));
+		
+		contentPane.add(mvmtMenu, BorderLayout.WEST);
+	}
+	
+	//TODO: Add logic to replace original start message if the settings are changed by the user 
+	//regenerateStartTag(args)
+	
+	/*// Handles when the user selects a movement to add to their diary
+	private void mvmtButtonSelected(String mvmtName)
+	{
+		
+	}
+	*/
+}
+

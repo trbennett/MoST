@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<session version="1.0">
+<refactoring comment="Rename type &apos;movementOptionMenu&apos; to &apos;MovementOptionMenu&apos;&#x0D;&#x0A;- Original project: &apos;DiaryGenerator&apos;&#x0D;&#x0A;- Original element: &apos;movementOptionMenu&apos;&#x0D;&#x0A;- Renamed element: &apos;MovementOptionMenu&apos;&#x0D;&#x0A;- Update references to refactored element&#x0D;&#x0A;- Update textual occurrences in comments and strings" description="Rename type &apos;movementOptionMenu&apos;" flags="589830" id="org.eclipse.jdt.ui.rename.type" input="/src&lt;{movementOptionMenu.java[movementOptionMenu" matchStrategy="1" name="MovementOptionMenu" qualified="false" references="true" similarDeclarations="false" stamp="1433268055449" textual="false" version="1.0"/>
+</session>
