@@ -1,0 +1,549 @@
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.Container;
+import java.awt.Frame;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.io.BufferedReader;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.StringTokenizer;
+import java.util.Vector;
+
+import javax.swing.BorderFactory;
+import javax.swing.DefaultListModel;
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JList;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
+import javax.swing.JToolBar;
+import javax.swing.ListSelectionModel;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+
+
+@SuppressWarnings("serial")
+public class DiaryGenerator extends JFrame{
+	
+	static ArrayList<String> diaryOutput;				// The movement list that constitutes the diary output (non-natural language)
+	DefaultListModel<String> defaultListModel;			// the default list model that contains movement list in natural language
+	JList<String> mvmtListDisplay;						// The list display for user selected movements
+	
+	// The necessary data to construct the hypergraph
+	List<Node> nodes;									// The nodes (movements) that are within the hypergraph
+	List<Edge> edges;									// The edges between each individual movement (via the hypergraph) - represents what movements can be done after each other
+	Vector<String> postures;							// The posture groups that organize the movements in the hypergraph
+	
+	String gender;										// The gender of subject to synthesize, represented as "M", "F", or "A" for all
+	String startString;									// The string added to the diary with basic info about subjects
+	int minAge, maxAge;									// Minimum and maximum age of subjects to synthesize data from
+	int numTrials;										// Number of trials to be generated upon running synthesize
+	
+	boolean inserting;									// Determines whether to add movement at current index or at end of diary
+	JButton insertBtn;
+	JButton startLoopBtn, endLoopBtn;					// Buttons to start and end loops
+	int numActiveLoops;									// Keeps track of how many unclosed loops exist
+	Color defaultColor;
+	List<JButton> mvmtBtns;								// A list of all the movement buttons. Note that this list will be in same order as items in nodes
+	
+	/**
+	 * The base constructor for the generator. Specifies the gender, age range, and number of trials to generate
+	 * @param gender The gender of subjects to obtain data from
+	 * @param minAge The min age of subjects to obtain data from
+	 * @param maxAge The max age of subjects to obtain data from
+	 * @param numTrials The number of trials to generate
+	 */
+	public DiaryGenerator(String gender, int minAge, int maxAge, int numTrials){
+		super("Diary Generator");
+		
+		loadMovementData();
+		initializeUI();
+		
+		startString = "START , " + gender + " , " + minAge + "-" + maxAge; 		// generate START tag
+		defaultListModel.insertElementAt(startString, defaultListModel.size());	// add START tag
+		inserting = false;														// Disable insert by default
+	}
+	
+	/** 
+	 * Populate hypergraph based on text file with base movement data information
+	 */
+	private void loadMovementData()
+	{
+		nodes = new ArrayList<Node>();
+		edges = new ArrayList<Edge>();
+		postures = new Vector<String>();
+		BufferedReader br = null;
+		String startPosture;
+		String name;
+		String endPosture;
+		String duration;
+		boolean durational = false;
+		String transition;
+		boolean transitional = false;
+		//Read from ../../Tools/generated_graph.txt and handle file not found
+		try{
+			br = new BufferedReader(new InputStreamReader(new FileInputStream("../../Tools/generated_graph.txt"))); // path name changed
+		}
+		catch (FileNotFoundException e1){
+			JOptionPane.showMessageDialog(null, "Did not find file ../../Tools/generated_graph.txt, please verify that the file exists", "Error", JOptionPane.ERROR_MESSAGE);
+			e1.printStackTrace();
+		}
+		String line = null;
+		StringTokenizer st = null;
+		try
+		{
+			while ((line = br.readLine()) != null){
+				line = line.trim();
+				if (line.length() == 0){
+					continue;
+				}
+				else if (!line.startsWith("%")){
+					st = new StringTokenizer(line, ",<>");
+					startPosture = st.nextToken().trim();
+					name = st.nextToken().trim();
+					endPosture = st.nextToken().trim();
+					if (!postures.contains(startPosture)){
+						postures.add(startPosture);
+					}
+					if (!postures.contains(endPosture)){
+						postures.add(endPosture);
+					}
+					duration = st.nextToken().trim();
+					if (duration.equals("Y")){
+						durational = true;
+					}
+					transition = st.nextToken().trim();
+					if (transition.equals("Y")){
+						transitional = true;
+					}
+					Node n = new Node(name, startPosture, endPosture,durational,transitional);
+					nodes.add(n);
+					durational = false;
+					transitional = false;
+					line = "";
+				}
+			} // end of while loop
+			br.close();
+		}
+		catch (IOException e1){
+			e1.printStackTrace();
+		}
+		
+		for (int i = 0; i < nodes.size(); i++){
+			for (int j = 0; j < nodes.size(); j++){
+				if (nodes.get(i).getEndPosture().trim().equals(nodes.get(j).getStartPosture().trim())){
+					edges.add(new Edge(nodes.get(i), nodes.get(j)));
+				}
+			}
+		}
+		
+	}
+	
+	/**
+	 * Initialize all the basic UI elements
+	 */
+	private void initializeUI(){
+		setDefaultCloseOperation(EXIT_ON_CLOSE);
+		setExtendedState(Frame.MAXIMIZED_BOTH);
+		
+		// Setup the layout of the contentPane
+		Container contentPane = this.getContentPane();
+		contentPane.setLayout(new BorderLayout());
+		
+		// Set the list model for the movement list display
+		// The model holds all the elements to be displayed
+		defaultListModel = new DefaultListModel<String>();
+		mvmtListDisplay = new JList<String>();
+		mvmtListDisplay.setModel(defaultListModel);
+		mvmtListDisplay.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);		// Make it so only one item can be selected at once
+		JScrollPane scrollPane = new JScrollPane();
+		scrollPane.setViewportView(mvmtListDisplay);
+		contentPane.add(scrollPane, BorderLayout.CENTER);
+		
+		// Setup the toolbar containing movement buttons and options
+		setupToolbar();
+		
+		this.pack();
+	}
+	
+	/**
+	 * Set up the side toolbar with all the options and movement buttons
+	 */
+	private void setupToolbar()
+	{
+		Container contentPane = this.getContentPane();
+		JToolBar mvmtMenu = new JToolBar(JToolBar.VERTICAL);
+		mvmtBtns = new ArrayList<JButton>();
+		mvmtMenu.setFloatable(false);
+		mvmtMenu.setMargin(new Insets(10, 5, 5, 5));
+		
+		ListSelectionModel listSelectionModel = mvmtListDisplay.getSelectionModel();		// Get the selection model for our list
+	    listSelectionModel.addListSelectionListener(new ListSelectionListener() {			// Handle when new items are selected in list
+	    	@Override
+	    	public void valueChanged(ListSelectionEvent e) {
+	    		ListSelectionModel selModel = (ListSelectionModel)e.getSource();			// Get the selection model
+	    		int selectedIndex = selModel.getMinSelectionIndex();						// Get the selected index of the model
+	    		
+	    		if(selectedIndex != -1){													// If an index is selected
+	    			if(inserting){															// and we are inserting a movement
+	    				if(selectedIndex < defaultListModel.size()-1){						// If not selecting the end of the list
+	    					disableImpossibleMovements(defaultListModel.get(selectedIndex),	// Disable movements that can't be done between selected movement and next
+	    							defaultListModel.get(selectedIndex+1));
+	    				}
+	    				else{																// Else
+	    					disableImpossibleMovements(defaultListModel.get(selectedIndex));// Disable the movements that can't be done at end of list
+	    				}
+	    			}
+	    		}
+	    	}
+        });
+		
+		// In the event that a movement has duration, show a menu to select the duration
+		ActionListener durationalMovementAction = new ActionListener(){
+			@Override
+        	public void actionPerformed(ActionEvent arg0) {
+				JButton mvmtBtn = (JButton)arg0.getSource();
+				MovementOptionMenu mvmtOptionMenu = new MovementOptionMenu();	// Create an option menu
+				int result = JOptionPane.showConfirmDialog(null, 
+					mvmtOptionMenu,	"Options",									// Show the option menu to the user
+					JOptionPane.OK_CANCEL_OPTION,								// allowing them to choose duration
+					JOptionPane.PLAIN_MESSAGE);									// that the movement will last
+				
+				if (result == JOptionPane.OK_OPTION) {							// If user hit okay after selecting duration
+					int duration = mvmtOptionMenu.getDuration();				// Get the duration selected by user
+					if(inserting == false){
+						defaultListModel.addElement((mvmtBtn.getName()			// Add movement to end of diary
+								+ "  D-" + duration));	
+						disableImpossibleMovements(mvmtBtn.getName());			// Disable impossible movements
+					}
+					else{
+						int selectedIndex = mvmtListDisplay.getSelectedIndex();	// Get the currently selected index
+						if(selectedIndex != -1){								// Check and see if there is an index selected
+							defaultListModel.add(selectedIndex+1,				// Add the movement at the selected index
+									(mvmtBtn.getName() + "  D-" + duration));	
+							insertBtn.setBackground(defaultColor);				// Set the insert button background color to default
+							inserting = false;									// Disable insert
+						}
+						else{													// Tell user no index was selected
+							inserting = false;									// Disable insert
+							insertBtn.setBackground(defaultColor);				// Set the insert button background color to default
+							JOptionPane.showMessageDialog(null, 				// Show error message if no index selected
+								"Went to insert, but no index was selected!",
+								"Error", JOptionPane.ERROR_MESSAGE);
+						}
+					}
+				}
+			}
+		};
+		
+		// In the event that a movement has no special characteristics, add it to the diary
+		ActionListener addMovementAction = new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent arg0) {
+				JButton mvmtBtn = (JButton)arg0.getSource();
+				if(inserting == false){											// If not inserting movement
+					defaultListModel.addElement(mvmtBtn.getName());				// Add movement to end of diary
+					disableImpossibleMovements(mvmtBtn.getName());				// Disable impossible movements
+				}
+				else{															// If insert button was hit previously
+					int selectedIndex = mvmtListDisplay.getSelectedIndex();		// Get the selected index
+					defaultListModel.add(selectedIndex+1, mvmtBtn.getName());	// Add the movement at the selected index
+					inserting = false;											// Disable insert
+					insertBtn.setBackground(defaultColor);						// Set the insert button background color to default
+				}
+				
+			}
+		};
+		
+		ActionListener optionsAction = new ActionListener(){
+			@Override
+			public void actionPerformed(ActionEvent arg0){
+				JButton optionsBtn = (JButton)arg0.getSource();
+				int selectedIndex;
+				
+				switch(optionsBtn.getName()){
+				// Reset the diary by clearing all its contents
+				case "rstBtn":
+					// TODO: Warn user about to reset due to button click, only proceed if 'okay'
+					defaultListModel.clear();
+					defaultListModel.insertElementAt(startString, 				// Re-add the start string with chosen info
+							defaultListModel.size());
+					enableAllMovements();										// Enable all movement buttons
+					break;
+				case "generateBtn":
+					// TODO: Call script or some other means to boot MATLAB with needed parameters
+					break;
+				// Insert next selected movement at cursor index
+				case "insertBtn":
+					if(inserting == false){										// If not already inserting
+						inserting = true;										// Set inserting to true to indicate intent to insert
+						defaultColor = optionsBtn.getBackground();				// get the default color of the button
+						optionsBtn.setBackground(Color.GRAY);					// Set the button color to gray to show it is selected
+					}
+					else{														// if already inserting
+						inserting = false;										// set inserting to false and disable insert
+						optionsBtn.setBackground(defaultColor);					// Set the button color to default
+					}
+					break;
+				// Delete movement at currently selected index
+				case "deleteBtn":
+					// TODO: Deleting can result in condition where movements that could not be performed consecutively
+					// become consecutive. In the event that this occurs, show an error message and do not perform delete
+					// TODO: If delete a start of loop, delete corresponding end of loop, vice-versa
+					// TODO: If no end of loop present, decrement numActiveLoops
+					selectedIndex = mvmtListDisplay.getSelectedIndex();			// Get cursor index
+					if(selectedIndex == -1){									// If no index selected
+						JOptionPane.showMessageDialog(null,						// Show an error message to the user 
+								"Must select an item to delete!",
+								"Error", JOptionPane.ERROR_MESSAGE);
+					}
+					else{
+						// TODO: check to determine if the delete is legal
+						if(selectedIndex > 1 && selectedIndex < defaultListModel.size()){
+							String prevEndPosture = getNodeByName(defaultListModel.get(selectedIndex-1)).getEndPosture();
+							String nextStartPosture = getNodeByName(defaultListModel.get(selectedIndex+1)).getStartPosture();
+							if(prevEndPosture.equals(nextStartPosture)){		// If movement postures match without selected movement
+								defaultListModel.remove(selectedIndex);			// Remove the movement
+							}
+							else{												// Otherwise
+								JOptionPane.showMessageDialog(null,				// Show an error message to the user 
+									"Delete results in impossible situation (end posture of previous"
+									+ " movement does not equal start posture of next movement)!",
+									"Error", JOptionPane.ERROR_MESSAGE);
+							}
+						}
+						else{													// Selected last or first item in list
+							defaultListModel.remove(selectedIndex);				// Remove element at selected index
+						}
+					}
+					
+					break;
+				case "startLoopBtn":
+					// Show the user an option menu that lets them select # of loop iterations
+					LoopOptionMenu loopOptionMenu = new LoopOptionMenu();
+					int result = JOptionPane.showConfirmDialog(null,			// Show the option menu to the user 
+							loopOptionMenu,	"Options", 
+							JOptionPane.OK_CANCEL_OPTION, 
+							JOptionPane.PLAIN_MESSAGE);
+					
+					if (result == JOptionPane.OK_OPTION) { 						// If user hit 'ok':
+						int iterations = loopOptionMenu.getNumIterations();		// Get the selected number of iterations
+						if(inserting){
+							selectedIndex = mvmtListDisplay.getSelectedIndex();	// Get the currently selected index
+							if(selectedIndex != -1){							// If an index is selected
+								defaultListModel.insertElementAt("[" 			// Add the start loop to the diary at selected index
+										+ iterations, selectedIndex+1);
+							}
+							else {												// If no index is selected
+								defaultListModel.insertElementAt("[" 			// Add the start loop to end of diary
+										+ iterations, defaultListModel.size());	
+							}
+							inserting = false;
+						}
+						else{
+							defaultListModel.insertElementAt("[" 				// Add the start loop to end of diary
+									+ iterations, defaultListModel.size());
+						}
+					}
+					// If user did not hit 'ok', do nothing
+					endLoopBtn.setEnabled(true);								// Enable end loop button
+					numActiveLoops++;											// Increment # of active loops
+					break;
+				case "endLoopBtn":
+					// TODO: handle case in which no start of loop is found before place user wants to insert end of loop
+					// Insert end loop at selected index, checking if loop ending makes sense
+					if(inserting) {												// If inserting in middle of diary
+						selectedIndex = mvmtListDisplay.getSelectedIndex();		// Get the currently selected index
+						if(selectedIndex != -1){
+							selectedIndex = defaultListModel.size()-1;			// If no index is selected, start from the end
+						}
+					}
+					else {
+						selectedIndex = defaultListModel.size()-1;				// Not inserting, so start from end of diary
+					}
+					
+					// Variables used to determine start and end posture of loop
+					String loopStartMvmtName, loopEndMvmtName;
+					Node loopStartNode, loopEndNode;
+					String loopStartingPosture, loopEndingPosture;
+					
+					loopStartMvmtName = "";	// Initialize to empty string
+					
+					// Work backwards from current index to latest start of loop
+					// to obtain the name of the movement at the start of the loop
+					for(int i = selectedIndex; i > 0; i--) {
+						if(defaultListModel.getElementAt(i).startsWith("[")){
+							loopStartMvmtName = defaultListModel.getElementAt(i+1);
+						}
+					}
+					
+					// TODO: Theoretically impossible, but chance that movement not found by getNodeByName
+					// Must handle this situation by checking to see if name of returned node is "failed"
+					// Show error code if this occurs and do not add end of loop to the diary
+					
+					loopStartNode = getNodeByName(loopStartMvmtName);				// Get the movement corresponding to the movement's name
+					loopStartingPosture = loopStartNode.getStartPosture();			// Get the starting posture of the movement
+					
+					// Get the ending posture of the loop
+					loopEndMvmtName = defaultListModel.getElementAt(selectedIndex);	// Get the name of the movement at the loop's end
+					loopEndNode = getNodeByName(loopEndMvmtName);					// Get the movement corresponding to the movement's nam
+					loopEndingPosture = loopEndNode.getEndPosture();				// Get the ending posture for the loop
+					
+					// If the end posture of the last movement is same as start posture of start movement
+					if(loopEndingPosture.equals(loopStartingPosture)) {
+						if(selectedIndex == defaultListModel.size()-1){
+							defaultListModel.addElement("]");
+						}
+						else{
+							defaultListModel.insertElementAt("]", selectedIndex);		// Loop ending is placed
+						}
+					}
+					else {		// Otherwise, show the user an error message explaining why the loop cannot be ended here
+						JOptionPane.showMessageDialog(null, "The posture at the end of the loop does not "
+								+ "match the posture at the start of the loop!", "Error", JOptionPane.ERROR_MESSAGE);
+					}
+					
+					numActiveLoops--;
+					
+					if(numActiveLoops == 0){										// If no unclosed loops remain
+						endLoopBtn.setEnabled(false);								// Disable end loop button
+					}
+					
+					break;
+				}
+			}
+		};
+		
+		// On click: clear diary contents as though just started
+		JButton rstBtn = new JButton("Reset Diary");
+		rstBtn.setName("rstBtn");
+		rstBtn.addActionListener(optionsAction);
+		mvmtMenu.add(rstBtn);
+		
+		// TODO: On click: open MATLAB and start data generation
+		JButton generateBtn = new JButton("Generate Data");
+		generateBtn.setName("generateBtn");
+		generateBtn.addActionListener(optionsAction);
+		mvmtMenu.add(generateBtn);
+		
+		// On click: insert movement in current selected location of diary
+		insertBtn = new JButton("Insert Movement");
+		insertBtn.setName("insertBtn");
+		insertBtn.addActionListener(optionsAction);
+		mvmtMenu.add(insertBtn);
+		
+		// On click: delete currently selected movement in diary if possible
+		JButton deleteBtn = new JButton("Delete Movement");
+		deleteBtn.setName("deleteBtn");
+		deleteBtn.addActionListener(optionsAction);
+		mvmtMenu.add(deleteBtn);
+		
+		// On click: start a loop
+		startLoopBtn = new JButton("Start Loop");
+		startLoopBtn.setName("startLoopBtn");
+		startLoopBtn.addActionListener(optionsAction);
+		mvmtMenu.add(startLoopBtn);
+		
+		// On click: end a loop
+		endLoopBtn = new JButton("End Loop");
+		endLoopBtn.setName("endLoopBtn");
+		endLoopBtn.addActionListener(optionsAction);
+		endLoopBtn.setEnabled(false);
+		mvmtMenu.add(endLoopBtn);
+		
+		// Does nothing but separate options from movement buttons
+		JButton separator = new JButton("----------------");
+		separator.setEnabled(false);
+		mvmtMenu.add(separator);
+		
+		// Add all the movements to the toolbar
+		for(int i = 0; i < nodes.size(); i++){
+			// Create a button for each movement
+			JButton tmp = new JButton(nodes.get(i).getName());
+			tmp.setName(nodes.get(i).getName());
+			tmp.setMargin(new Insets(2, 5, 2, 5));
+			// If that movement has duration, show popup menu when clicked
+			if(nodes.get(i).isDurational()){
+				tmp.addActionListener(durationalMovementAction);
+			}
+			else {
+				tmp.addActionListener(addMovementAction);
+			}
+			mvmtBtns.add(tmp);										// Add the button to mvmtBtns
+			mvmtMenu.add(tmp);										// Add the button to the toolbar
+		}
+		
+		mvmtMenu.setBorder(BorderFactory.createMatteBorder(0, 0, 0, 1, Color.darkGray));
+		
+		contentPane.add(mvmtMenu, BorderLayout.WEST);
+	}
+	
+	/**
+	 * Get the corresponding node that represents a movement with name mvmtName
+	 * @param mvmtName The name of the movement to look for
+	 * @return A Node that is the movement having name mvmtName
+	 */
+	private Node getNodeByName(String mvmtName) {
+		for(int i = 0; i < nodes.size(); i++) {				// Increment through the nodes list
+			if(mvmtName.equals(nodes.get(i).name)) {		// Check if mvmtName == this node's name
+				return nodes.get(i);						// If it does, return the node
+			}
+		}
+		
+		return new Node("failed", "", "", false, false);	// If find fails, return empty Node named "failed"
+	}
+	
+	// On call, disable all buttons that cannot be done from previous movement
+	private void disableImpossibleMovements(String prevName){
+		Node prev = getNodeByName(prevName);			// Get the Node associated with the previous movement name
+		// Enable all movement buttons
+		for(int i = 0; i < mvmtBtns.size(); i++){
+			if(!prev.getEndPosture().equals(getNodeByName(mvmtBtns.get(i).getName()).getStartPosture())){
+				mvmtBtns.get(i).setEnabled(false);
+			}
+			else{
+				mvmtBtns.get(i).setEnabled(true);
+			}
+		}
+	}
+	
+	// On call, disable all buttons that cannot be done between the two movements
+	private void disableImpossibleMovements(String prevName, String nextName){
+		Node prev = getNodeByName(prevName);
+		Node next = getNodeByName(nextName);
+		
+		Node tmpNode;
+		JButton tmpBtn;
+		// For each movement, determine if it can be done between the two movements
+		for(int i = 0; i < mvmtBtns.size(); i++){
+			tmpBtn = mvmtBtns.get(i);
+			tmpNode = getNodeByName(tmpBtn.getName());
+			if(!prev.getEndPosture().equals(tmpNode.getStartPosture()) || !tmpNode.getEndPosture().equals(next.getStartPosture())){
+				tmpBtn.setEnabled(false);
+			}
+			else{
+				tmpBtn.setEnabled(true);
+			}
+		}
+	}
+	
+	// Enable all movements; used when reset diary
+	private void enableAllMovements(){
+		for(int i = 0; i < mvmtBtns.size(); i++){
+			mvmtBtns.get(i).setEnabled(true);
+		}
+	}
+	
+	// TODO: Fix so that can't select start tag or some other mechanism
+	
+	//TODO: Add logic to replace original start message if the settings are changed by the user 
+	//regenerateStartTag(args)
+	
+}
+

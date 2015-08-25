@@ -2,22 +2,24 @@
 <section name="Workbench">
 	<section name="org.eclipse.ui.texteditor.FindReplaceDialog">
 		<item value="false" key="isRegEx"/>
-		<item value="diary_out" key="selection"/>
-		<item value="false" key="casesensitive"/>
+		<item value="" key="selection"/>
+		<item value="true" key="casesensitive"/>
 		<item value="false" key="incremental"/>
 		<item value="true" key="wrap"/>
 		<item value="true" key="wholeword"/>
 		<list key="findhistory">
-			<item value="diary_out"/>
-			<item value="listModel"/>
-			<item value="defaultListModel"/>
-			<item value="listbox"/>
-			<item value="createJList"/>
-			<item value="getNodeFromName"/>
-			<item value="n"/>
-			<item value="listmodel"/>
+			<item value="tab"/>
+			<item value="\t"/>
+			<item value="setEnabled"/>
+			<item value="disable"/>
+			<item value="edges"/>
+			<item value="postures"/>
+			<item value="movementOptionMenu"/>
+			<item value="get"/>
 		</list>
 		<list key="replacehistory">
+			<item value="mvmtOptionMenu"/>
+			<item value="LoopOptionMenu"/>
 			<item value="true"/>
 			<item value="subjMenu"/>
 			<item value="bodPartMenu"/>
@@ -29,7 +31,7 @@
 		<item value="305" key="DIALOG_WIDTH"/>
 		<item value="1|Segoe UI|9.0|0|WINDOWS|1|-15|0|0|0|400|0|0|0|1|0|0|0|0|Segoe UI" key="DIALOG_FONT_NAME"/>
 		<item value="444" key="DIALOG_HEIGHT"/>
-		<item value="1220" key="DIALOG_X_ORIGIN"/>
-		<item value="220" key="DIALOG_Y_ORIGIN"/>
+		<item value="1385" key="DIALOG_X_ORIGIN"/>
+		<item value="234" key="DIALOG_Y_ORIGIN"/>
 	</section>
 </section>

@@ -21,7 +21,7 @@ public class MovementOptionMenu extends JPanel {
 	            BorderFactory.createEmptyBorder(5, 5, 5, 5)));
 	      GridBagConstraints gbc;
           gbc = createGbc(0, 0);
-          add(new JLabel("Duration:", JLabel.LEFT), gbc);
+          add(new JLabel("Duration (seconds):", JLabel.LEFT), gbc);
           gbc = createGbc(1, 0);
           SpinnerNumberModel durModel = new SpinnerNumberModel(1, 0, 120, 1);
           durationSpinner = new JSpinner(durModel);
